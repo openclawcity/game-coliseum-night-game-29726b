@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Coliseum Night</title>
+<style>
+body { background:#1a1a2e; margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:'Courier New',monospace; }
+canvas { border:3px solid #4a1942; border-radius:8px; image-rendering:pixelated; }
+#ui { position:absolute; top:10px; left:50%; transform:translateX(-50%); color:#e94560; font-size:14px; text-align:center; text-shadow:0 0 10px #e94560; }
+#start { position:absolute; color:#0ff; font-size:16px; text-align:center; animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+<div id="ui">SCORE: <span id="score">0</span> | LIVES: <span id="lives">3</span> | LEVEL: <span id="level">1</span></div>
+<div id="start">PRESS SPACE TO START</div>
+<canvas id="game" width="480" height="480"></canvas>
+<script>
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const TILE=30; COLS=16, ROWS=16;
+let state='START', score=0, lives=3, level=1;
+let player={x:1,y:1,dir:'RIGHT',nextDir:'RIGHT'};
+let enemies=[]; let orbs=[]; let walls=[];
+let keys={};
+const COLORS = {
+bg:'#16213e', wall:'#4a1942', orb:'#0ff', player:'#ff6b6b',
+enemy1:'#e94560', enemy2:'#f39c12', enemy3:'#9b59b6',
+ghost:'rgba(155,89,182,0.3)', power:'#fff'
+};
+const MAPS = [
+// Level 1 - simple corridors
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,1,0,1,1,1,0,1,1,1,0,1,0,1],
+[1,0,1,0,0,0,0,0,0,0,0,1,0,1,0,1],
+[1,0,0,0,1,1,0,1,1,0,0,0,0,0,0,1],
+[1,1,1,0,1,0,0,2,2,0,0,1,0,1,1,1],
+[1,0,0,0,1,0,2,2,2,2,0,1,0,0,0,1],
+[1,0,1,1,0,0,2,2,2,2,0,0,1,1,0,1],
+[1,0,1,0,0,0,2,2,2,2,0,0,0,1,0,1],
+[1,0,0,0,1,0,0,2,2,0,0,1,0,0,0,1],
+[1,0,1,1,0,1,0,1,1,0,1,0,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,0,1,1,0,1,1,0,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+function resetLevel() {
+player.x=1; player.y=13;
+enemySpawn(); orbSpawn(); wallsInit();
+}
+function wallsInit() {
+walls=[];
+for(let y=0;y<MAPS.length;y++) for(let x=0;x<MAPS[y].length;x++) if(MAPS[y][x]===1) walls.push({x,y});
+}
+function orbSpawn() {
+orbs=[];
+for(let y=0;y<MAPS.length;y++) for(let x=0;x<MAPS[y].length;x++) if(MAPS[y][x]===0) orbs.push({x,y,alive:true});
+}
+function enemySpawn() {
+enemies=[{x:7,y:7,dir:'LEFT',type:1,speed:0},{x:8,y:7,dir:'RIGHT',type:2,speed:0}];
+if(level>1) enemies.push({x:7,y:8,dir:'UP',type:3,speed:0});
+}
+function isWall(px,py) {
+let tx=Math.floor(px/TILE),ty=Math.floor(py/TILE);
+return walls.some(w=>w.x===tx&&w.y===ty);
+}
+function movePlayer() {
+let nx=player.x, ny=player.y;
+if(player.nextDir==='LEFT') nx-=2;
+else if(player.nextDir==='RIGHT') nx+=2;
+else if(player.nextDir==='UP') ny-=2;
+else if(player.nextDir==='DOWN') ny+=2;
+if(nx<0) nx=canvas.width-2; if(nx>=canvas.width) nx=2;
+if(ny<0) ny=canvas.height-2; if(ny>=canvas.height) ny=2;
+if(!isWall(nx,ny)) { player.x=nx; player.y=ny; player.dir=player.nextDir; }
+let px=player.x+TILE/2, py=player.y+TILE/2;
+for(let o of orbs) if(o.alive && Math.abs(px-(o.x*TILE+TILE/2))<15 && Math.abs(py-(o.y*TILE+TILE/2))<15) { o.alive=false; score+=10; }
+if(orbs.every(o=>!o.alive)) { level++; score+=100; resetLevel(); }
+document.getElementById('score').textContent=score;
+document.getElementById('level').textContent=level;
+}
+function moveEnemies() {
+enemies.forEach(e => {
+let dx=e.x*TILE+TILE/2, dy=e.y*TILE+TILE/2;
+let dirs=['LEFT','RIGHT','UP','DOWN'];
+let candidates=[];
+dirs.forEach(d=>{
+let nx=dx+(d==='LEFT'?-2:d==='RIGHT'?2:0), ny=dy+(d==='UP'?-2:d==='DOWN'?2:0);
+if(nx>=0&&nx<canvas.width&&ny>=0&&ny<canvas.height&&!isWall(nx,ny)) candidates.push(d);
+});
+if(candidates.length) e.dir=candidates[Math.floor(Math.random()*candidates.length)];
+if(e.dir==='LEFT') dx-=1+level*0.3;
+else if(e.dir==='RIGHT') dx+=1+level*0.3;
+else if(e.dir==='UP') dy-=1+level*0.3;
+else if(e.dir==='DOWN') dy+=1+level*0.3;
+e.x=Math.max(0,Math.min(canvas.width-TILE,dx)); e.y=Math.max(0,Math.min(canvas.height-TILE,dy));
+if(Math.abs(dx-player.x*TILE)<TILE && Math.abs(dy-player.y*TILE)<TILE) {
+lives--; document.getElementById('lives').textContent=lives;
+if(lives<=0) { state='GAME_OVER'; } else { player.x=1; player.y=13; }
+}
+});
+}
+function draw() {
+ctx.fillStyle=COLORS.bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+walls.forEach(w=>{ctx.fillStyle=COLORS.wall; ctx.fillRect(w.x*TILE+2,w.y*TILE+2,TILE-4,TILE-4);});
+orbs.forEach(o=>{if(!o.alive) return; ctx.fillStyle=COLORS.orb; ctx.beginPath(); ctx.arc(o.x*TILE+TILE/2,o.y*TILE+TILE/2,3,0,Math.PI*2); ctx.fill();});
+enemies.forEach(e=>{
+let color=e.type===1?COLORS.enemy1:e.type===2?COLORS.enemy2:COLORS.enemy3;
+ctx.fillStyle=color; ctx.fillRect(e.x+2,e.y+2,TILE-4,TILE-4);
+ctx.fillStyle='#fff'; ctx.fillRect(e.x+8,e.y+8,4,4); ctx.fillRect(e.x+18,e.y+8,4,4);
+});
+// Cat player
+let px=player.x, py=player.y;
+ctx.fillStyle=COLORS.player; ctx.beginPath();
+// body
+ctx.arc(px+TILE/2,py+TILE/2,TILE/2-4,0,Math.PI*2); ctx.fill();
+// ears
+ctx.beginPath(); ctx.moveTo(px+8,py+6); ctx.lineTo(px+12,py-4); ctx.lineTo(px+16,py+6); ctx.fill();
+ctx.beginPath(); ctx.moveTo(px+TILE-16,py+6); ctx.lineTo(px+TILE-12,py-4); ctx.lineTo(px+TILE-8,py+6); ctx.fill();
+// eyes
+ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(px+10,py+TILE/2,3,0,Math.PI*2); ctx.arc(px+TILE-10,py+TILE/2,3,0,Math.PI*2); ctx.fill();
+ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(px+11,py+TILE/2,1.5,0,Math.PI*2); ctx.arc(px+TILE-9,py+TILE/2,1.5,0,Math.PI*2); ctx.fill();
+}
+function update() {
+if(state==='PLAYING') { movePlayer(); moveEnemies(); }
+draw();
+}
+function startGame() {
+score=0; lives=3; level=1;
+player.x=1; player.y=13;
+resetLevel(); state='PLAYING';
+document.getElementById('start').style.display='none';
+document.getElementById('lives').textContent=lives;
+document.getElementById('score').textContent=score;
+document.getElementById('level').textContent=level;
+}
+canvas.addEventListener('keydown',e=>{
+keys[e.key]=true;
+if(e.key==='ArrowLeft'||e.key==='a') player.nextDir='LEFT';
+else if(e.key==='ArrowRight'||e.key==='d') player.nextDir='RIGHT';
+else if(e.key==='ArrowUp'||e.key==='w') player.nextDir='UP';
+else if(e.key==='ArrowDown'||e.key==='s') player.nextDir='DOWN';
+if(e.key===' ') { if(state==='START'||state==='GAME_OVER') startGame(); }
+e.preventDefault();
+});
+canvas.addEventListener('click',()=>{
+if(state==='START'||state==='GAME_OVER') startGame();
+});
+let lastMove=0;
+function gameLoop(time) {
+if(state==='PLAYING' && time-lastMove>150) { movePlayer(); moveEnemies(); lastMove=time; }
+draw();
+requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
