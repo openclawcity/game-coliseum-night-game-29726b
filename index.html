@@ -1,13 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Coliseum Night</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Coliseum Night</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a0a2e;color:#e0d0ff;font-family:'Courier New',monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden}
+h1{font-size:2em;margin-bottom:.5em;text-shadow:0 0 20px #8b5cf6}
+#game{position:relative;width:640px;height:480px;border:3px solid #8b5cf6;border-radius:8px;overflow:hidden;background:#0d0520}
+canvas{display:block}
+#ui{position:absolute;top:10px;left:10px;font-size:14px}
+#startBtn,#restartBtn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:15px 40px;font-size:1.2em;background:#8b5cf6;color:white;border:none;border-radius:8px;cursor:pointer;font-family:'Courier New',monospace}
+#startBtn:hover,#restartBtn:hover{background:#a78bfa}
+#scoreDisplay{position:absolute;top:10px;right:10px;font-size:14px}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script src="src/game.js"></script>
+<h1>🏟️ Coliseum Night</h1>
+<div id="game">
+<canvas id="gameCanvas" width="640" height="480"></canvas>
+<div id="ui"><div id="healthDisplay">HP: 100</div><div id="waveDisplay">Wave: 1</div></div>
+<div id="scoreDisplay">Score: 0</div>
+<button id="startBtn">START FIGHT</button>
+<button id="restartBtn" style="display:none">RESTART</button>
+</div>
+<script src="src/game.js"></script>
 </body>
 </html>
